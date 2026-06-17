@@ -28,9 +28,15 @@ server/
 ├── data/lynk-and-co/    # the brand's APPROVED docs (replace the placeholder file)
 ├── kb/                  # chunker · embedder · vector store · retriever · ingest
 ├── brain/               # system prompt (brand-safety contract) · RAG grounding
+├── fallbacks.py         # provider fallback chains · audio-only · readiness
+├── cache.py             # pre-rendered answer cache (last line of the fallback chain)
 ├── bot.py               # the Pipecat pipeline
-└── app.py               # FastAPI: health/status now, WebRTC signaling with the kiosk
-scripts/demo_kb.py       # offline demo of the KB brain (no keys)
+└── app.py               # FastAPI: health/status + WebRTC /offer signaling
+kiosk/                   # Next.js portrait-totem kiosk (AR/EN, attract loop, QR, WebRTC)
+scripts/
+├── demo_kb.py           # offline demo of the KB brain (no keys)
+├── onboard_tenant.py    # scaffold a new brand (config + placeholder docs)
+└── prerender_cache.py   # render a tenant's FAQ answers into the cache
 tests/                   # offline test suite (no keys)
 ```
 
@@ -74,6 +80,40 @@ retrieved approved passages and the assembled brand-safety prompt — including 
 safe "I don't have that" path when nothing relevant is found. (If
 `ANTHROPIC_API_KEY` is set, it also generates the avatar's real spoken answer.)
 
+## Onboard another brand (the SaaS seam)
+
+```bash
+python scripts/onboard_tenant.py acme-motors --name "Acme Motors" --languages ar,en
+# → replace the placeholder doc with approved docs, then:
+EMBEDDER=stub python -m server.kb.ingest acme-motors
+```
+
+`aurora-ev` ships as a worked second tenant. Each tenant has its own config,
+approved docs, KB index, voice, and avatar — no code changes to add one.
+
+## Fallbacks
+
+Every provider can declare a `fallback` in the tenant config; the bot uses the
+first one whose credentials are set, and runs **audio-only** when no avatar is
+ready. Pre-render FAQ answers as a last-resort cache:
+
+```bash
+EMBEDDER=stub python scripts/prerender_cache.py lynk-and-co   # offline (stub answers)
+python scripts/prerender_cache.py lynk-and-co                 # real answers with a key
+```
+
+`/tenants/<id>/status` reports per-provider readiness, `audio_only_capable`, and
+`cached_answers`.
+
+## Kiosk
+
+A Next.js portrait-totem front-end (`kiosk/`): AR/EN with RTL, an attract loop,
+QR lead capture, and a WebRTC client that calls `/offer`. See `kiosk/README.md`.
+
+```bash
+cd kiosk && npm install && npm run build      # builds + type-checks (no browser needed)
+```
+
 ## Tests
 
 ```bash
@@ -89,9 +129,12 @@ health/status endpoints.
 ## Status
 
 **Verified here (runs offline, covered by tests):** config + tenant loader,
-chunker, embedder (stub), vector store, retriever, brand-safety system prompt,
-RAG grounding, full ingest → retrieve → ground flow in Arabic and English, and
-the API health/status endpoints.
+chunker, embedder (stub), vector store + store factory, retriever, brand-safety
+system prompt, RAG grounding, full ingest → retrieve → ground flow in Arabic and
+English, multi-tenant isolation + onboarding scaffolder, provider fallback chains
++ audio-only decisioning, the pre-rendered answer cache, and the API
+health/status endpoints. The Next.js kiosk builds and type-checks (`npm run
+build`).
 
 **Runs on your machine (needs keys + a browser/mic):** the Pipecat bot
 (`server/bot.py`) and the WebRTC `/offer` endpoint. A live voice/video loop can't
@@ -115,9 +158,15 @@ against the real Pipecat 1.4 API (verified by introspection):
 
 ## Next
 
-1. Next.js kiosk (portrait totem, AR/EN, attract loop, QR lead capture) + the
-   WebRTC `/offer` client.
-2. Fallback paths made first-class: secondary STT/LLM/TTS, audio-only on avatar
-   drop, pre-rendered answer cache.
-3. `PgVectorStore` against a live Postgres + an onboarding flow for tenant #2.
+The roadmap items — kiosk, first-class fallbacks, and `PgVectorStore` +
+tenant #2 — are now built and verified offline. What remains is live validation
+and production data:
+
+1. Run the live loop end-to-end with keys + a browser/mic; validate the kiosk's
+   WebRTC client against the running `/offer`.
+2. Replace the placeholder docs with each brand's approved spec sheets; set the
+   cloned Levantine voice and the brand's Simli face; retune `min_score` for the
+   production (Voyage) embedder.
+3. Point a tenant at a live Postgres (`vector_store: pgvector` + `DATABASE_URL`)
+   and validate `PgVectorStore` against it.
 ```
