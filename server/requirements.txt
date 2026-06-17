@@ -1,0 +1,17 @@
+# --- Core engine (the live WebRTC voice/video loop) ---
+# Pipecat 1.4 orchestrates transport, VAD, barge-in, and turn-taking; the extras
+# pull in each swappable provider used by the pipeline.
+pipecat-ai[anthropic,deepgram,elevenlabs,simli,silero,webrtc]==1.4.0
+
+# --- API ---
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+
+# --- KB embeddings (production) ---
+# Voyage is the default multilingual embedder. The offline path needs none of
+# this: EMBEDDER=stub builds and queries the KB with no keys or extra deps.
+voyageai>=0.3
+
+# --- Optional: direct Claude calls for the offline demo's spoken answer ---
+anthropic>=0.40
