@@ -21,6 +21,7 @@ REPO_ROOT = SERVER_DIR.parent
 TENANTS_DIR = SERVER_DIR / "tenants"
 DATA_DIR = SERVER_DIR / "data"
 KB_INDEX_DIR = SERVER_DIR / "kb_index"
+CACHE_DIR = SERVER_DIR / "cache"
 
 # A value that is exactly ``ENV:SOME_VAR`` is replaced by os.environ["SOME_VAR"].
 _ENV_REF_RE = re.compile(r"^ENV:([A-Z0-9_]+)$")
@@ -123,6 +124,10 @@ def tenant_path(tenant_id: str) -> Path:
 
 def index_path(tenant_id: str) -> Path:
     return KB_INDEX_DIR / f"{tenant_id}.json"
+
+
+def cache_path(tenant_id: str) -> Path:
+    return CACHE_DIR / f"{tenant_id}.json"
 
 
 def load_tenant(tenant_id: str, env: Mapping[str, str] | None = None) -> TenantConfig:

@@ -36,6 +36,15 @@ def test_status_reports_kb_and_readiness(client, built_index):
     assert body["live_ready"] == (body["kb_chunks"] > 0 and not body["missing_keys"])
 
 
+def test_status_reports_fallback_posture(client, built_index):
+    body = client.get("/tenants/lynk-and-co/status").json()
+    assert set(body["providers"]) == {"stt", "llm", "tts", "avatar"}
+    # The LLM chain lists primary + fallback.
+    assert len(body["providers"]["llm"]["options"]) == 2
+    assert isinstance(body["audio_only_capable"], bool)
+    assert isinstance(body["cached_answers"], int)
+
+
 def test_status_unknown_tenant_404(client):
     assert client.get("/tenants/nope/status").status_code == 404
 

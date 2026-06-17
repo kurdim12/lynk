@@ -19,7 +19,13 @@
       "provider": "anthropic",
       "model": "claude-opus-4-8",
       "max_tokens": 1024,
-      "api_key": "ENV:ANTHROPIC_API_KEY"
+      "api_key": "ENV:ANTHROPIC_API_KEY",
+      "fallback": {
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 1024,
+        "api_key": "ENV:ANTHROPIC_API_KEY"
+      }
     },
     "tts": {
       "provider": "elevenlabs",
@@ -49,5 +55,12 @@
     ],
     "refusal_en": "I don't have that in my approved information yet, but I'd be glad to help with what I do know or connect you with a Lynk & Co specialist.",
     "refusal_ar": "لا تتوفر لدي هذه المعلومة ضمن المصادر المعتمدة حالياً، لكن يسعدني مساعدتك بما لدي أو توصيلك بأحد مختصي لينك آند كو."
-  }
+  },
+  "faqs": [
+    "What is the electric driving range?",
+    "How long is the warranty?",
+    "How can I book a test drive?",
+    "ما هي مدة الضمان؟",
+    "كيف يتم شحن السيارة؟"
+  ]
 }

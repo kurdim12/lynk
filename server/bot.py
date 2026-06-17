@@ -33,6 +33,7 @@ from pipecat.services.simli.video import SimliVideoService
 
 from server.brain.rag import RAGGroundingProcessor, RAGGrounder
 from server.config import TenantConfig, load_tenant
+from server.fallbacks import first_ready, use_avatar
 from server.kb.retriever import Retriever
 
 DEFAULT_TENANT = "lynk-and-co"
@@ -59,14 +60,29 @@ def _greeting_system_prompt(tenant: TenantConfig) -> str:
     )
 
 
+def _require(tenant: TenantConfig, kind: str) -> dict:
+    """The first ready provider config for a kind, or a clear error."""
+    option = first_ready(tenant, kind)
+    if option is None:
+        raise RuntimeError(
+            f"No ready '{kind}' provider for tenant '{tenant.id}'. "
+            f"Set its credentials, or configure a fallback that has them."
+        )
+    return option.config
+
+
 def create_services(tenant: TenantConfig):
-    """Build the swappable provider services from the tenant config."""
+    """Build the swappable provider services, honouring fallbacks.
+
+    Each service uses the first provider in its chain whose credentials are set
+    (primary, else fallback). The avatar is optional: if no avatar provider is
+    ready, the bot runs audio-only and ``simli`` is ``None``.
+    """
     from deepgram import LiveOptions
 
-    stt_cfg = tenant.provider("stt")
-    llm_cfg = tenant.provider("llm")
-    tts_cfg = tenant.provider("tts")
-    avatar_cfg = tenant.provider("avatar")
+    stt_cfg = _require(tenant, "stt")
+    llm_cfg = _require(tenant, "llm")
+    tts_cfg = _require(tenant, "tts")
 
     stt = DeepgramSTTService(
         api_key=stt_cfg["api_key"],
@@ -87,10 +103,10 @@ def create_services(tenant: TenantConfig):
         voice_id=tts_cfg["voice_id"],
         model=tts_cfg.get("model", "eleven_turbo_v2_5"),
     )
-    simli = SimliVideoService(
-        api_key=avatar_cfg["api_key"],
-        face_id=avatar_cfg["face_id"],
-    )
+    simli = None
+    if use_avatar(tenant):
+        avatar_cfg = _require(tenant, "avatar")
+        simli = SimliVideoService(api_key=avatar_cfg["api_key"], face_id=avatar_cfg["face_id"])
     return stt, llm, tts, simli
 
 
@@ -106,19 +122,24 @@ def create_task(transport: BaseTransport, tenant: TenantConfig) -> PipelineTask:
     context = LLMContext(messages=[{"role": "system", "content": _greeting_system_prompt(tenant)}])
     aggregator = LLMContextAggregatorPair(context)
 
-    pipeline = Pipeline(
-        [
-            transport.input(),       # WebRTC mic in
-            stt,                     # Deepgram STT (AR/EN)
-            aggregator.user(),       # aggregate the user's turn into the context
-            rag,                     # inject approved-knowledge grounding
-            llm,                     # Claude, under the brand-safety contract
-            tts,                     # ElevenLabs TTS
-            simli,                   # Simli lip-synced video
-            transport.output(),      # WebRTC audio + video out
-            aggregator.assistant(),  # record the assistant turn back into context
-        ]
-    )
+    # Avatar is optional — drop Simli for an audio-only loop when it isn't ready.
+    processors = [
+        transport.input(),       # WebRTC mic in
+        stt,                     # Deepgram STT (AR/EN)
+        aggregator.user(),       # aggregate the user's turn into the context
+        rag,                     # inject approved-knowledge grounding
+        llm,                     # Claude, under the brand-safety contract
+        tts,                     # ElevenLabs TTS
+    ]
+    if simli is not None:
+        processors.append(simli)  # Simli lip-synced video
+    else:
+        logger.warning(f"[{tenant.id}] avatar not available — running audio-only")
+    processors += [
+        transport.output(),      # WebRTC audio (+ video) out
+        aggregator.assistant(),  # record the assistant turn back into context
+    ]
+    pipeline = Pipeline(processors)
 
     task = PipelineTask(
         pipeline,

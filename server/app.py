@@ -13,7 +13,9 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from server import __version__
+from server.cache import AnswerCache
 from server.config import index_path, load_tenant
+from server.fallbacks import can_run_audio_only, readiness_report
 
 app = FastAPI(title="AI Product Specialist Engine", version=__version__)
 
@@ -60,6 +62,11 @@ async def tenant_status(tenant_id: str) -> dict:
         "index_built": kb["index_built"],
         "missing_keys": tenant.missing_keys,
         "live_ready": live_ready,
+        # Fallback posture: per-provider readiness, whether a voice-only answer
+        # is possible (avatar optional), and how many answers are pre-rendered.
+        "providers": readiness_report(tenant),
+        "audio_only_capable": kb["kb_chunks"] > 0 and can_run_audio_only(tenant),
+        "cached_answers": len(AnswerCache.for_tenant(tenant_id)),
     }
 
 

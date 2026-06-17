@@ -10,5 +10,7 @@ venv/
 # Secrets
 .env
 
-# KB build artifact — rebuild with `python -m server.kb.ingest <tenant>`
+# Build artifacts — rebuild with `python -m server.kb.ingest <tenant>`
+# and `python scripts/prerender_cache.py <tenant>`
 server/kb_index/
+server/cache/
