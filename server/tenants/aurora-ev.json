@@ -1,0 +1,54 @@
+{
+  "id": "aurora-ev",
+  "name": "Aurora EV",
+  "persona": {
+    "name": "Sama",
+    "role": "digital product specialist",
+    "style": "Calm, precise, and welcoming. You are speaking out loud at a showroom kiosk, so keep answers short and natural — no markdown, lists, or emoji."
+  },
+  "languages": ["ar", "en"],
+  "default_language": "en",
+  "providers": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-2-general",
+      "language": "multi",
+      "api_key": "ENV:DEEPGRAM_API_KEY"
+    },
+    "llm": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "max_tokens": 1024,
+      "api_key": "ENV:ANTHROPIC_API_KEY"
+    },
+    "tts": {
+      "provider": "elevenlabs",
+      "model": "eleven_turbo_v2_5",
+      "voice_id": "ENV:ELEVENLABS_VOICE_ID_AURORA",
+      "api_key": "ENV:ELEVENLABS_API_KEY"
+    },
+    "avatar": {
+      "provider": "simli",
+      "face_id": "ENV:SIMLI_FACE_ID_AURORA",
+      "api_key": "ENV:SIMLI_API_KEY"
+    }
+  },
+  "kb": {
+    "embedder": "voyage",
+    "vector_store": "memory",
+    "chunk_size": 800,
+    "chunk_overlap": 150,
+    "top_k": 4,
+    "min_score": 0.12
+  },
+  "brand_safety": {
+    "topics_allowed": [
+      "the vehicle's features and specifications",
+      "pricing and availability where published in the approved docs",
+      "test drives and showroom visits",
+      "charging, range, and warranty as documented"
+    ],
+    "refusal_en": "That isn't in my approved information yet, but I can help with what I do know or connect you with an Aurora EV specialist.",
+    "refusal_ar": "هذه المعلومة غير متوفرة لدي ضمن المصادر المعتمدة حالياً، لكن يمكنني مساعدتك بما لدي أو توصيلك بأحد مختصي أورورا."
+  }
+}

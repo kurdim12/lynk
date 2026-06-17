@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 from server.kb.types import Chunk, RetrievedChunk
+
+MEMORY_KINDS = {"memory", "inmemory", "in_memory"}
+PGVECTOR_KINDS = {"pgvector", "postgres", "pg"}
 
 
 def _cosine(a: Sequence[float], b: Sequence[float]) -> float:
@@ -162,3 +166,37 @@ class PgVectorStore(VectorStore):
     def __len__(self) -> int:  # pragma: no cover - requires a live database
         with self._connect() as conn:
             return int(conn.execute(f"SELECT COUNT(*) FROM {self.table}").fetchone()[0])
+
+
+def vector_store_kind(tenant) -> str:
+    """Which store a tenant is configured for: ``memory`` (default) or ``pgvector``."""
+    kind = (tenant.kb.get("vector_store") or "memory").lower()
+    if kind in MEMORY_KINDS:
+        return "memory"
+    if kind in PGVECTOR_KINDS:
+        return "pgvector"
+    raise ValueError(f"Unknown vector_store '{kind}'. Use 'memory' or 'pgvector'.")
+
+
+def make_vector_store(
+    tenant,
+    *,
+    embedder_name: str,
+    dim: int,
+    env: Mapping[str, str] | None = None,
+) -> VectorStore:
+    """Construct the configured store. The engine is agnostic to which one."""
+    kind = vector_store_kind(tenant)
+    if kind == "memory":
+        return InMemoryVectorStore(embedder=embedder_name, dim=dim)
+
+    env = os.environ if env is None else env
+    dsn = env.get("DATABASE_URL")
+    if not dsn:
+        raise RuntimeError("vector_store=pgvector requires DATABASE_URL to be set.")
+    return PgVectorStore(
+        dsn=dsn,
+        table=tenant.kb.get("pg_table", "kb_chunks"),
+        embedder=embedder_name,
+        dim=dim,
+    )

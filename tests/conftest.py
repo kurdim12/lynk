@@ -35,6 +35,12 @@ def built_index():
     return ingest_tenant(TENANT_ID, env=STUB_ENV)
 
 
+@pytest.fixture(scope="session")
+def built_aurora():
+    """Build tenant #2's KB index (proves the multi-tenant seam)."""
+    return ingest_tenant("aurora-ev", env=STUB_ENV)
+
+
 @pytest.fixture
 def retriever(built_index, tenant) -> Retriever:
     return Retriever.from_tenant(tenant, env=STUB_ENV)

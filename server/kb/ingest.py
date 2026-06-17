@@ -19,7 +19,12 @@ from server.config import TenantConfig, embedder_name, load_tenant
 from server.kb.chunker import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE, chunk_markdown
 from server.kb.embedder import get_embedder
 from server.kb.types import Chunk
-from server.kb.vector_store import InMemoryVectorStore
+from server.kb.vector_store import (
+    InMemoryVectorStore,
+    PgVectorStore,
+    make_vector_store,
+    vector_store_kind,
+)
 
 DOC_GLOBS = ("*.md", "*.txt")
 
@@ -31,6 +36,8 @@ class IngestResult:
     documents: list[str]
     chunks: int
     index_path: Path
+    store_kind: str = "memory"
+    destination: str = ""
 
 
 def _collect_docs(data_dir: Path) -> list[Path]:
@@ -76,9 +83,16 @@ def ingest_tenant(tenant_id: str, env: Mapping[str, str] | None = None) -> Inges
     embedder = get_embedder(name, kb_config=tenant.kb, env=env)
     vectors = embedder.embed_documents([c.text for c in chunks])
 
-    store = InMemoryVectorStore(embedder=embedder.name, dim=embedder.dim)
+    store = make_vector_store(tenant, embedder_name=embedder.name, dim=embedder.dim, env=env)
+    if isinstance(store, PgVectorStore):
+        store.ensure_schema()
     store.add(chunks, vectors)
-    store.save(tenant.index_path)
+
+    if isinstance(store, InMemoryVectorStore):
+        store.save(tenant.index_path)
+        destination = str(tenant.index_path)
+    else:
+        destination = f"pgvector:{store.table}"
 
     docs = sorted({c.source for c in chunks})
     return IngestResult(
@@ -87,6 +101,8 @@ def ingest_tenant(tenant_id: str, env: Mapping[str, str] | None = None) -> Inges
         documents=docs,
         chunks=len(chunks),
         index_path=tenant.index_path,
+        store_kind=vector_store_kind(tenant),
+        destination=destination,
     )
 
 
@@ -104,9 +120,10 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Ingested tenant '{result.tenant_id}'")
     print(f"  embedder : {result.embedder}")
+    print(f"  store    : {result.store_kind}")
     print(f"  documents: {len(result.documents)} ({', '.join(result.documents)})")
     print(f"  chunks   : {result.chunks}")
-    print(f"  index    : {result.index_path}")
+    print(f"  written  : {result.destination}")
     return 0
 
 

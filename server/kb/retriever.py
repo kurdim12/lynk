@@ -7,7 +7,12 @@ from typing import Mapping
 from server.config import TenantConfig, embedder_name
 from server.kb.embedder import Embedder, get_embedder
 from server.kb.types import RetrievedChunk
-from server.kb.vector_store import InMemoryVectorStore, VectorStore
+from server.kb.vector_store import (
+    InMemoryVectorStore,
+    VectorStore,
+    make_vector_store,
+    vector_store_kind,
+)
 
 DEFAULT_TOP_K = 4
 DEFAULT_MIN_SCORE = 0.0
@@ -44,22 +49,27 @@ class Retriever:
 
     @classmethod
     def from_tenant(cls, tenant: TenantConfig, env: Mapping[str, str] | None = None) -> "Retriever":
-        """Load a tenant's persisted in-memory index and a matching query embedder."""
-        if not tenant.index_path.exists():
-            raise FileNotFoundError(
-                f"No KB index for '{tenant.id}' at {tenant.index_path}. "
-                f"Run: python -m server.kb.ingest {tenant.id}"
-            )
-        store = InMemoryVectorStore.load(tenant.index_path)
+        """Build a retriever from a tenant's configured store + query embedder."""
         name = embedder_name(tenant, env)
-        if name != store.embedder:
-            # The query embedder must match the one the index was built with, or
-            # vectors live in different spaces and scores are meaningless.
-            raise ValueError(
-                f"Embedder mismatch: index built with '{store.embedder}' but "
-                f"'{name}' selected. Re-run ingest, or set EMBEDDER={store.embedder}."
-            )
-        embedder = get_embedder(name, kb_config={**tenant.kb, "dim": store.dim}, env=env)
+        if vector_store_kind(tenant) == "memory":
+            if not tenant.index_path.exists():
+                raise FileNotFoundError(
+                    f"No KB index for '{tenant.id}' at {tenant.index_path}. "
+                    f"Run: python -m server.kb.ingest {tenant.id}"
+                )
+            store: VectorStore = InMemoryVectorStore.load(tenant.index_path)
+            if name != store.embedder:
+                # The query embedder must match the one the index was built with,
+                # or vectors live in different spaces and scores are meaningless.
+                raise ValueError(
+                    f"Embedder mismatch: index built with '{store.embedder}' but "
+                    f"'{name}' selected. Re-run ingest, or set EMBEDDER={store.embedder}."
+                )
+            embedder = get_embedder(name, kb_config={**tenant.kb, "dim": store.dim}, env=env)
+        else:  # pgvector — the same interface, backed by Postgres
+            embedder = get_embedder(name, kb_config=tenant.kb, env=env)
+            store = make_vector_store(tenant, embedder_name=name, dim=embedder.dim, env=env)
+
         return cls(
             embedder,
             store,
