@@ -1,0 +1,53 @@
+{
+  "id": "lynk-and-co",
+  "name": "Lynk & Co",
+  "persona": {
+    "name": "Noor",
+    "role": "digital product specialist",
+    "style": "Warm, concise, and professional. You are speaking out loud at a showroom kiosk, so keep answers short and natural — no markdown, lists, or emoji. One or two sentences is usually enough."
+  },
+  "languages": ["ar", "en"],
+  "default_language": "en",
+  "providers": {
+    "stt": {
+      "provider": "deepgram",
+      "model": "nova-2-general",
+      "language": "multi",
+      "api_key": "ENV:DEEPGRAM_API_KEY"
+    },
+    "llm": {
+      "provider": "anthropic",
+      "model": "claude-opus-4-8",
+      "max_tokens": 1024,
+      "api_key": "ENV:ANTHROPIC_API_KEY"
+    },
+    "tts": {
+      "provider": "elevenlabs",
+      "model": "eleven_turbo_v2_5",
+      "voice_id": "ENV:ELEVENLABS_VOICE_ID",
+      "api_key": "ENV:ELEVENLABS_API_KEY"
+    },
+    "avatar": {
+      "provider": "simli",
+      "face_id": "ENV:SIMLI_FACE_ID",
+      "api_key": "ENV:SIMLI_API_KEY"
+    }
+  },
+  "kb": {
+    "embedder": "voyage",
+    "chunk_size": 800,
+    "chunk_overlap": 150,
+    "top_k": 4,
+    "min_score": 0.12
+  },
+  "brand_safety": {
+    "topics_allowed": [
+      "the vehicle's features and specifications",
+      "pricing and availability where published in the approved docs",
+      "test drives and showroom visits",
+      "ownership, membership, and warranty as documented"
+    ],
+    "refusal_en": "I don't have that in my approved information yet, but I'd be glad to help with what I do know or connect you with a Lynk & Co specialist.",
+    "refusal_ar": "لا تتوفر لدي هذه المعلومة ضمن المصادر المعتمدة حالياً، لكن يسعدني مساعدتك بما لدي أو توصيلك بأحد مختصي لينك آند كو."
+  }
+}
