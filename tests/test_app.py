@@ -24,6 +24,12 @@ def test_health(client):
     assert resp.json()["status"] == "ok"
 
 
+def test_cors_allows_kiosk_origin(client):
+    # The browser kiosk calls the API cross-origin — CORS must be present.
+    resp = client.get("/health", headers={"Origin": "http://localhost:3000"})
+    assert resp.headers.get("access-control-allow-origin") in ("*", "http://localhost:3000")
+
+
 def test_status_reports_kb_and_readiness(client, built_index):
     resp = client.get("/tenants/lynk-and-co/status")
     assert resp.status_code == 200

@@ -9,7 +9,10 @@ crashing the app.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from server import __version__
@@ -18,6 +21,17 @@ from server.config import index_path, load_tenant
 from server.fallbacks import can_run_audio_only, readiness_report
 
 app = FastAPI(title="AI Product Specialist Engine", version=__version__)
+
+# The kiosk calls this API cross-origin from the browser, so CORS is required.
+# Default is open (simplest for a demo); set KIOSK_ORIGINS to a comma-separated
+# allowlist (e.g. "https://kiosk.example.com") to lock it down in production.
+_origins = os.environ.get("KIOSK_ORIGINS", "*").strip()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"] if _origins == "*" else [o.strip() for o in _origins.split(",")],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Active WebRTC connections, keyed by peer-connection id, for renegotiation.
 _connections: dict[str, object] = {}
